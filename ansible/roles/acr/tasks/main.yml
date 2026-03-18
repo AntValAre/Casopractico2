@@ -1,0 +1,37 @@
+# ansible/roles/acr/tasks/main.yml
+---
+
+- name: Obtener credenciales del ACR usando azure_rm 
+  set_fact:
+    acr_user: "{{ acr_name }}"
+    acr_password: "{{ lookup('azure_rm', 'acr', acr_name, 'password') }}"
+
+- name: Login en Azure Container Registry con Podman
+  containers.podman.podman_login:
+    registry: "{{ acr_login_server }}"
+    username: "{{ acr_user }}"
+    password: "{{ acr_password }}"
+
+- name: Descargar imagen del servidor web  y la app con persistencia 
+  containers.podman.podman_image:
+    name: "{{ item }}"
+  loop:
+    - nginx:latest
+    - redis:6.0.8
+
+- name: Etiquetar imagenes para el ACR
+  containers.podman.podman_tag:
+    image: "{{ item.src }}"
+    target_names:
+      - "{{ acr_login_server }}/{{ item.dest }}"
+  loop:
+    - { src: 'nginx:latest', dest: 'nginx:latest' }
+    - { src: 'redis:6.0.8', dest: 'unir/redis:6.0.8' }
+
+- name: Hacer push de las imagenes al ACR
+  containers.podman.podman_image:
+    name: "{{ acr_login_server }}/{{ item }}"
+    push: yes
+  loop:
+    - nginx:latest
+    - unir/redis:6.0.8

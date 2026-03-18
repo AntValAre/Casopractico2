@@ -1,0 +1,86 @@
+# ansible/roles/aks/templates/k8s-app.yml.j2
+---
+# 1. Backend Deployment (Redis)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: unir
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: {{ acr_login_server }}/unir/redis:6.0.8
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        ports:
+        - containerPort: 6379
+          name: redis
+---
+# 2. Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: unir
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: backend
+---
+# 3. Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: unir
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: frontend
+        image: {{ acr_login_server }}/azure-vote-front:latest
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        ports:
+        - containerPort: 80
+        env:
+        - name: REDIS
+          value: "backend"
+---
+# 4. Frontend Service (LoadBalancer)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: unir
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: frontend

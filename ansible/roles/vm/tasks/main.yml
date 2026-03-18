@@ -1,0 +1,42 @@
+# ansible/roles/vm/tasks/main.yml
+---
+- name: Actualizar repositorios e instalar Podman y herramientas
+  apt:
+    name: 
+      - podman
+      - apache2-utils 
+    state: present
+    update_cache: yes
+
+- name: Crear directorio para el volumen montado del servidor web
+  file:
+    path: /opt/webdata
+    state: directory
+    mode: '0755'
+
+- name: Crear usuario con autenticacion basica para Nginx
+  community.general.htpasswd:
+    path: /opt/webdata/.htpasswd
+    name: admin
+    password: PasswordSegura123!
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Login en el ACR desde la Máquina Virtual
+  containers.podman.podman_login:
+    registry: "{{ acr_login_server }}"
+    username: "{{ acr_user }}"
+    password: "{{ acr_password }}"
+
+- name: Arrancar el contenedor Nginx con Podman
+  containers.podman.podman_container:
+    name: mi_servidor_web
+    image: "{{ acr_login_server }}/nginx:latest"
+    state: started
+    ports:
+      - "80:80"
+    volumes:
+      - "/opt/webdata:/usr/share/nginx/html:ro" 
+      - "/opt/webdata/.htpasswd:/etc/nginx/.htpasswd:ro"
+    recreate: yes 

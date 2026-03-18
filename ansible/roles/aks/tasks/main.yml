@@ -1,0 +1,25 @@
+# ansible/roles/aks/tasks/main.yml
+---
+- name: Crear Namespace en Kubernetes
+  kubernetes.core.k8s:
+    name: unir
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Crear secreto para conectar con el ACR 
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: acr-secret
+        namespace: unir
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ lookup('template', 'dockerconfig.json.j2') | b64encode }}" 
+- name: Desplegar la aplicacion en AKS desde el template
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'k8s-app.yml.j2') }}"
